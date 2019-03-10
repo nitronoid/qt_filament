@@ -12,6 +12,10 @@ We need to first compile our material to access it from the program. Following t
 > ./build/bin/QtFilament
 ```
 
+## Notes
+The `filament_raii.h` header contains some simple wrapper classes around filament entities and engine registered objects, to ensure they are correctly destroyed in a modern C++ manor.
+If you would rather not use them, you should simply define a destructor in the FilamentWindow class, that destroys all of the resources manually.
+
 ## Screen shot
 <p align="center">
 <img src="https://i.imgur.com/WE3APrk.png" width="500">
