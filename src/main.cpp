@@ -2,9 +2,8 @@
 #include <QSurfaceFormat>
 #include "app_window.h"
 #include "native_window_widget.h"
+#include "filament_raii.h"
 #include <random>
-#include <filament/FilamentAPI.h>
-#include <filament/Engine.h>
 #include <filament/Material.h>
 #include <filament/MaterialInstance.h>
 #include <filament/RenderableManager.h>
@@ -41,98 +40,6 @@ static constexpr uint8_t BAKED_COLOR_PACKAGE[] = {
 #include "materials/bakedColor.inc"
 };
 
-// Deleter designed to be used in tandem with a unique_ptr to destroy filament
-// entities using the provided filament engine
-template <typename T>
-struct FilamentEngineDeleter
-{
-  std::shared_ptr<filament::Engine> m_engine = nullptr;
-
-  void operator()(T* io_ptr) noexcept
-  {
-    static_assert(
-      std::is_base_of<filament::FilamentAPI, T>::value,
-      "Cannot use the filament engine deleter, for non-filament types");
-    if (io_ptr && m_engine)
-    {
-      m_engine->destroy(io_ptr);
-    }
-  }
-};
-// Unique pointer designed to store a filament API objects
-template <typename T>
-using filament_engine_ptr = std::unique_ptr<T, FilamentEngineDeleter<T>>;
-
-// Class designed using RAII to ensure entities are properly destroyed
-class ScopedEntity
-{
-public:
-  // Default construct in same way as an Entity can be
-  ScopedEntity() noexcept = default;
-  // Copying is disallowed to prevent double destroying
-  ScopedEntity(const ScopedEntity&) = delete;
-  ScopedEntity& operator=(const ScopedEntity&) = delete;
-  // Standard move semantics
-  ScopedEntity(ScopedEntity&&) noexcept = default;
-  ScopedEntity& operator=(ScopedEntity&&) noexcept = default;
-
-  // Construct from an engine pointer and entity
-  ScopedEntity(utils::Entity&& i_entity,
-               std::shared_ptr<filament::Engine> i_engine) noexcept
-    : m_entity(i_entity), m_engine(std::move(i_engine))
-  {
-  }
-
-  // Construct from an engine
-  ScopedEntity(std::shared_ptr<filament::Engine> i_engine) noexcept
-    : m_engine(std::move(i_engine))
-  {
-  }
-
-  // Assign from an entity
-  ScopedEntity& operator=(utils::Entity&& i_entity) noexcept
-  {
-    m_entity = i_entity;
-    return *this;
-  }
-
-  ~ScopedEntity()
-  {
-    // Only destroy if we have a valid entity and engine
-    if (m_engine && m_entity)
-    {
-      m_engine->destroy(m_entity);
-    }
-  }
-
-  // Implicitly cast to an entity in const context
-  operator utils::Entity() const noexcept
-  {
-    return m_entity;
-  }
-
-  // Implicitly cast to a reference to an entity in non-const context
-  operator utils::Entity&() noexcept
-  {
-    return m_entity;
-  }
-
-  // Assign from an entity
-  void set_entity(utils::Entity&& i_entity) noexcept
-  {
-    m_entity = i_entity;
-  }
-
-  // Assign from an engine
-  void set_engine(std::shared_ptr<filament::Engine> i_engine) noexcept
-  {
-    m_engine = std::move(i_engine);
-  }
-
-private:
-  utils::Entity m_entity;
-  std::shared_ptr<filament::Engine> m_engine = nullptr;
-};
 
 // Our filament rendering window
 class FilamentWindowWidget final : public NativeWindowWidget
@@ -285,16 +192,18 @@ private:
   // Store a shared pointer to the engine, all of our entities will also store
   std::shared_ptr<filament::Engine> m_engine;
 
-  filament_engine_ptr<filament::SwapChain> m_swap_chain;
-  filament_engine_ptr<filament::Renderer> m_renderer;
-  filament_engine_ptr<filament::Camera> m_camera;
-  filament_engine_ptr<filament::View> m_view;
-  filament_engine_ptr<filament::Scene> m_scene;
-  filament_engine_ptr<filament::VertexBuffer> m_vertex_buffer;
-  filament_engine_ptr<filament::IndexBuffer> m_index_buffer;
-  filament_engine_ptr<filament::Material> m_material;
+  // Scoped unique pointers to all engine registered objects
+  FilamentScopedPointer<filament::SwapChain> m_swap_chain;
+  FilamentScopedPointer<filament::Renderer> m_renderer;
+  FilamentScopedPointer<filament::Camera> m_camera;
+  FilamentScopedPointer<filament::View> m_view;
+  FilamentScopedPointer<filament::Scene> m_scene;
+  FilamentScopedPointer<filament::VertexBuffer> m_vertex_buffer;
+  FilamentScopedPointer<filament::IndexBuffer> m_index_buffer;
+  FilamentScopedPointer<filament::Material> m_material;
 
-  ScopedEntity m_triangle;
+  // Scoped entity for our renderable
+  FilamentScopedEntity m_triangle;
 };
 
 int main(int argc, char* argv[])
