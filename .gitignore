@@ -1,0 +1,5 @@
+build
+.qmake*
+Makefile
+ui/*.h
+materials/*.inc
