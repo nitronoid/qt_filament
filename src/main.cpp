@@ -59,9 +59,80 @@ struct FilamentEngineDeleter
     }
   }
 };
-// Unique pointer designed to store a filament entity
+// Unique pointer designed to store a filament API objects
 template <typename T>
 using filament_engine_ptr = std::unique_ptr<T, FilamentEngineDeleter<T>>;
+
+// Class designed using RAII to ensure entities are properly destroyed
+class ScopedEntity
+{
+public:
+  // Default construct in same way as an Entity can be
+  ScopedEntity() noexcept = default;
+  // Copying is disallowed to prevent double destroying
+  ScopedEntity(const ScopedEntity&) = delete;
+  ScopedEntity& operator=(const ScopedEntity&) = delete;
+  // Standard move semantics
+  ScopedEntity(ScopedEntity&&) noexcept = default;
+  ScopedEntity& operator=(ScopedEntity&&) noexcept = default;
+
+  // Construct from an engine pointer and entity
+  ScopedEntity(utils::Entity&& i_entity,
+               std::shared_ptr<filament::Engine> i_engine) noexcept
+    : m_entity(i_entity), m_engine(std::move(i_engine))
+  {
+  }
+
+  // Construct from an engine
+  ScopedEntity(std::shared_ptr<filament::Engine> i_engine) noexcept
+    : m_engine(std::move(i_engine))
+  {
+  }
+
+  // Assign from an entity
+  ScopedEntity& operator=(utils::Entity&& i_entity) noexcept
+  {
+    m_entity = i_entity;
+    return *this;
+  }
+
+  ~ScopedEntity()
+  {
+    // Only destroy if we have a valid entity and engine
+    if (m_engine && m_entity)
+    {
+      m_engine->destroy(m_entity);
+    }
+  }
+
+  // Implicitly cast to an entity in const context
+  operator utils::Entity() const noexcept
+  {
+    return m_entity;
+  }
+
+  // Implicitly cast to a reference to an entity in non-const context
+  operator utils::Entity&() noexcept
+  {
+    return m_entity;
+  }
+
+  // Assign from an entity
+  void set_entity(utils::Entity&& i_entity) noexcept
+  {
+    m_entity = i_entity;
+  }
+
+  // Assign from an engine
+  void set_engine(std::shared_ptr<filament::Engine> i_engine) noexcept
+  {
+    m_engine = std::move(i_engine);
+  }
+
+private:
+  utils::Entity m_entity;
+  std::shared_ptr<filament::Engine> m_engine = nullptr;
+};
 
 // Our filament rendering window
 class FilamentWindowWidget final : public NativeWindowWidget
@@ -82,6 +153,7 @@ public:
     , m_index_buffer(nullptr,
                      FilamentEngineDeleter<filament::IndexBuffer>{m_engine})
     , m_material(nullptr, FilamentEngineDeleter<filament::Material>{m_engine})
+    , m_triangle(m_engine)
   {
   }
 
@@ -144,7 +216,7 @@ public:
     const auto prim_type = fl::RenderableManager::PrimitiveType::TRIANGLES;
     // Build a renderable entity that will be our triangle, from the buffers
     // and the material
-    auto triangle = flut::EntityManager::get().create();
+    m_triangle = flut::EntityManager::get().create();
     fl::RenderableManager::Builder(1)
       .boundingBox({{-1.f, -1.f, -1.f}, {1.f, 1.f, 1.f}})
       .material(0, m_material->getDefaultInstance())
@@ -152,8 +224,8 @@ public:
       .culling(false)
       .receiveShadows(false)
       .castShadows(false)
-      .build(*m_engine, triangle);
-    m_scene->addEntity(triangle);
+      .build(*m_engine, m_triangle);
+    m_scene->addEntity(m_triangle);
   }
 
 private:
@@ -221,6 +293,8 @@ private:
   filament_engine_ptr<filament::VertexBuffer> m_vertex_buffer;
   filament_engine_ptr<filament::IndexBuffer> m_index_buffer;
   filament_engine_ptr<filament::Material> m_material;
+
+  ScopedEntity m_triangle;
 };
 
 int main(int argc, char* argv[])
