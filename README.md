@@ -13,5 +13,8 @@ We need to first compile our material to access it from the program. Following t
 ```
 
 ## Screen shot
+<p align="center">
+<img src="https://i.imgur.com/WE3APrk.png" width="500">
+</p>
 
 
