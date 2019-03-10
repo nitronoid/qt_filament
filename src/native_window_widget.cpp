@@ -43,9 +43,7 @@ void NativeWindowWidget::resizeEvent(QResizeEvent* i_resize_event)
   if (size.width() < 0 || size.height() < 0)
     return;
 
-  // We pass the window id as derived class may need to rebuild a swap chain
-  auto native_window_id = winId();
-  resize_impl((void*)native_window_id);
+  resize_impl();
 
   // Qt automatically requests an update if we resize the window to larger
   // dimensions, but if we resize smaller, we need to manually request the
@@ -95,7 +93,7 @@ void NativeWindowWidget::init()
 void NativeWindowWidget::draw_impl()
 {
 }
-void NativeWindowWidget::resize_impl(void*)
+void NativeWindowWidget::resize_impl()
 {
 }
 void NativeWindowWidget::init_impl(void*)

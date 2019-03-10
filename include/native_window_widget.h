@@ -30,7 +30,7 @@ protected:
   // For derived classes to draw to this native window
   virtual void draw_impl();
   // For derived classes to handle a window resize
-  virtual void resize_impl(void* io_native_window);
+  virtual void resize_impl();
   // For derived classes to run initialization procedures
   virtual void init_impl(void* io_native_window);
 

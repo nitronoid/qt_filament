@@ -164,15 +164,12 @@ private:
                             1);
   }
 
-  virtual void resize_impl(void* io_native_window) override
+  virtual void resize_impl() override
   {
     // Don't attempt to access any filament entities before we've initialized
     if (!m_is_init)
       return;
-    NativeWindowWidget::resize_impl(io_native_window);
-    // Recreate our swap chain, doesn't seem to be necessary for OpenGL but
-    // seems correct for Vulkan
-    m_swap_chain.reset(m_engine->createSwapChain(io_native_window));
+    NativeWindowWidget::resize_impl();
     // Recalculate our camera matrices
     setup_camera();
   }
