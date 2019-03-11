@@ -185,6 +185,15 @@ private:
     }
   }
 
+  virtual void closeEvent(QCloseEvent *i_event) override
+  {
+    QWidget::closeEvent(i_event);
+    // We need to ensure all rendering operations have completed before we 
+    // destroy our engine registered objects.
+    // Safe to assume we won't be issuing anymore render calls after this
+    filament::Fence::waitAndDestroy(m_engine->createFence());
+  }
+
 private:
   // Store a shared pointer to the engine, all of our entities will also store
   std::shared_ptr<filament::Engine> m_engine;
