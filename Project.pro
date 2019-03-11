@@ -43,12 +43,18 @@ LIBS += \
   -ldl \
   -pthread 
 
+if (!isEmpty(STDLIB_PATH)) {
+    LIBS += -L${STDLIB_PATH}
+}
 # Need this to find filament symbols
 LIBS += -lc++ 
 
+macx:{
+    QMAKE_CXXFLAGS += -x objective-c++
+    QMAKE_LFLAGS += -framework Metal -framework MetalKit -framework Cocoa -framework CoreFoundation -fobjc-link-runtime
+}
+
 # use clang, dont need to 
-QMAKE_CXX = /usr/bin/clang++-7
-QMAKE_LINK = /usr/bin/clang++-7
 QMAKE_CXXFLAGS += -Ofast -msse -msse2 -msse3 -march=native -funroll-loops 
 QMAKE_CXXFLAGS += -Wall -Wextra
 
