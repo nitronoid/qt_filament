@@ -40,26 +40,23 @@ static constexpr uint8_t BAKED_COLOR_PACKAGE[] = {
 #include "materials/bakedColor.inc"
 };
 
-
 // Our filament rendering window
 class FilamentWindowWidget final : public NativeWindowWidget
 {
 public:
-  explicit FilamentWindowWidget(QWidget* i_parent)
+  explicit FilamentWindowWidget(QWidget* i_parent,
+                                const filament::Engine::Backend i_backend)
     : NativeWindowWidget(i_parent)
-    , m_engine(filament::Engine::create(filament::Engine::Backend::OPENGL),
+    , m_engine(filament::Engine::create(i_backend),
                [](filament::Engine* i_engine) { i_engine->destroy(&i_engine); })
-    , m_swap_chain(nullptr,
-                   FilamentEngineDeleter<filament::SwapChain>{m_engine})
-    , m_renderer(nullptr, FilamentEngineDeleter<filament::Renderer>{m_engine})
-    , m_camera(nullptr, FilamentEngineDeleter<filament::Camera>{m_engine})
-    , m_view(nullptr, FilamentEngineDeleter<filament::View>{m_engine})
-    , m_scene(nullptr, FilamentEngineDeleter<filament::Scene>{m_engine})
-    , m_vertex_buffer(nullptr,
-                      FilamentEngineDeleter<filament::VertexBuffer>{m_engine})
-    , m_index_buffer(nullptr,
-                     FilamentEngineDeleter<filament::IndexBuffer>{m_engine})
-    , m_material(nullptr, FilamentEngineDeleter<filament::Material>{m_engine})
+    , m_swap_chain(nullptr, {m_engine})
+    , m_renderer(m_engine->createRenderer(), {m_engine})
+    , m_camera(m_engine->createCamera(), {m_engine})
+    , m_view(m_engine->createView(), {m_engine})
+    , m_scene(m_engine->createScene(), {m_engine})
+    , m_vertex_buffer(nullptr, {m_engine})
+    , m_index_buffer(nullptr, {m_engine})
+    , m_material(nullptr, {m_engine})
     , m_triangle(m_engine)
   {
   }
@@ -67,12 +64,8 @@ public:
   virtual void init_impl(void* io_native_window) override
   {
     NativeWindowWidget::init_impl(io_native_window);
-    // Create all of our scene entities
+    // Create our swap chain for displaying rendered frames
     m_swap_chain.reset(m_engine->createSwapChain(io_native_window));
-    m_renderer.reset(m_engine->createRenderer());
-    m_camera.reset(m_engine->createCamera());
-    m_view.reset(m_engine->createView());
-    m_scene.reset(m_engine->createScene());
 
     // Link the camera and scene to our view point
     m_view->setCamera(m_camera.get());
@@ -185,10 +178,10 @@ private:
     }
   }
 
-  virtual void closeEvent(QCloseEvent *i_event) override
+  virtual void closeEvent(QCloseEvent* i_event) override
   {
     QWidget::closeEvent(i_event);
-    // We need to ensure all rendering operations have completed before we 
+    // We need to ensure all rendering operations have completed before we
     // destroy our engine registered objects.
     // Safe to assume we won't be issuing anymore render calls after this
     filament::Fence::waitAndDestroy(m_engine->createFence());
@@ -219,11 +212,12 @@ int main(int argc, char* argv[])
   // Create a new main window
   AppWindow window;
   // Create our filament window
-  auto filament_window = std::make_shared<FilamentWindowWidget>(&window);
+  auto filament_widget = std::make_shared<FilamentWindowWidget>(
+    &window, filament::Engine::Backend::OPENGL);
   // Initialize the filament entities and set-up cameras
-  filament_window->init();
+  filament_widget->init();
   // Initialize the main window using our filament scene
-  window.init(filament_window);
+  window.init(filament_widget);
   // Show it
   window.show();
   // Hand control over to Qt framework
